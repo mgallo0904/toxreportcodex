@@ -1,0 +1,55 @@
+services:
+  - type: web
+    name: tox-review-backend
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt && alembic upgrade head && python seed/seed_findings.py
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --workers 2
+    disk:
+      name: tox-data
+      mountPath: /var/data
+      sizeGB: 10
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: tox-review-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: tox-review-redis
+          property: connectionString
+      - key: INFERENCE_BASE_URL
+        value: https://ollama.com
+      - key: INFERENCE_API_KEY
+        sync: false
+      - key: DEFAULT_MODEL_TAG
+        value: deepseek-r1
+      - key: STORAGE_PATH
+        value: /var/data
+      - key: MODAL_TOKEN_ID
+        sync: false
+      - key: MODAL_TOKEN_SECRET
+        sync: false
+      - key: ENVIRONMENT
+        value: production
+      - key: CORS_ORIGINS
+        value: https://tox-review-frontend.onrender.com
+
+  - type: static
+    name: tox-review-frontend
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: frontend/dist
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: https://tox-review-backend.onrender.com
+
+databases:
+  - name: tox-review-db
+    plan: free
+    databaseName: tox_review
+    user: tox_admin
+
+  - name: tox-review-redis
+    plan: free
+    type: redis
